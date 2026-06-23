@@ -49,6 +49,47 @@
         .btn-del { padding: 4px 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; }
         .btn-del:hover { background-color: #bd2130; }
 
+        /* 📱 모바일 환경 전용 스타일 (초압축 테이블 표 형식 유지) */
+        @media (max-width: 600px) {
+            table { display: block; width: 100%; box-shadow: none; border: none; }
+            thead, tbody { display: block; width: 100%; }
+            
+            /* 하나의 행(tr)을 플렉스 박스로 변환하여 내부에 2단 줄바꿈 허용 */
+            tr {
+                display: flex;
+                flex-wrap: wrap;
+                padding: 6px 0;
+                border-bottom: 1px solid #ddd;
+            }
+            
+            th, td {
+                border: none !important;
+                padding: 2px 2px !important;
+                box-sizing: border-box;
+            }
+
+            /* [1단] 품목명 제목틀 및 입력창: 가로 100%를 채워 무조건 위쪽에 배치 */
+            th:nth-child(1), td:nth-child(1) {
+                width: 100%;
+                flex: 0 0 100%;
+                text-align: left;
+                padding-bottom: 4px !important;
+            }
+            th:nth-child(1) { font-size: 14px; font-weight: bold; color: #007bff; }
+            .name-input { width: 100%; font-weight: bold; background-color: #fafdff; }
+
+            /* [2단] 수치 항목들: 품목명 바로 아래에 한 줄로 촘촘하게 가로 배열 */
+            th:nth-child(2), td:nth-child(2) { width: 28%; flex: 0 0 28%; } /* 전산재고 */
+            th:nth-child(3), td:nth-child(3) { width: 28%; flex: 0 0 28%; } /* 현재고 */
+            th:nth-child(4), td:nth-child(4) { width: 22%; flex: 0 0 22%; } /* 오차 */
+            th:nth-child(5), td:nth-child(5) { width: 22%; flex: 0 0 22%; } /* 관리 */
+
+            th:not(:nth-child(1)) { font-size: 11px; color: #666; background-color: transparent; padding-top: 4px !important; }
+            input { width: 100%; text-align: center; padding: 5px; font-size: 13px; }
+            .error-cell { height: 29px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+            .btn-del { width: 100%; padding: 5px 0; font-size: 12px; }
+        }
+
         /* 🌙 다크 모드 */
         @media (prefers-color-scheme: dark) {
             body { background-color: #121212; color: #e0e0e0; }
@@ -66,6 +107,14 @@
             .btn-del { background-color: #c62828; }
             .btn-del:hover { background-color: #b71c1c; }
             .date-container input[type="date"] { background-color: #1e1e1e; color: #e0e0e0; border-color: #444; }
+
+            /* 모바일 다크모드 대응 */
+            @media (max-width: 600px) {
+                tr { border-bottom-color: #333; }
+                th:nth-child(1) { color: #64b5f6; }
+                th:not(:nth-child(1)) { color: #aaa; }
+                .name-input { background-color: #1a2332; border-color: #3d4b61; }
+            }
         }
     </style>
 </head>
@@ -82,7 +131,7 @@
         <table id="inventoryTable">
             <thead>
                 <tr>
-                    <th>품목명</th>
+                    <th>CU연천제일풍경채점</th>
                     <th style="width: 18%;">전산재고</th>
                     <th style="width: 18%;">현재고</th>
                     <th style="width: 15%;">오차</th>
@@ -103,10 +152,9 @@
         function updateURL() {
             const params = new URLSearchParams();
             
-            // 날짜 저장 로직 (선택된 날짜가 있다면 YYMMDD 포맷으로 주소에 저장)
             if (dateInput.value) {
-                const rawDate = dateInput.value.replace(/-/g, ""); // "2026-06-23" -> "20260623"
-                const yyStyle = rawDate.substring(2); // "260623"
+                const rawDate = dateInput.value.replace(/-/g, "");
+                const yyStyle = rawDate.substring(2);
                 params.set("date", yyStyle);
             }
 
@@ -215,9 +263,8 @@
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
             
-            // [날짜 세팅] URL에 date가 있으면 복원, 없으면 오늘 날짜 자동 계산
             if (urlParams.has("date")) {
-                const urlDate = urlParams.get("date"); // "260623" 구조
+                const urlDate = urlParams.get("date");
                 if (urlDate.length === 6) {
                     const fullYear = "20" + urlDate.substring(0, 2);
                     const month = urlDate.substring(2, 4);
@@ -232,10 +279,8 @@
                 dateInput.value = `${yyyy}-${mm}-${dd}`;
             }
 
-            // 날짜 수동 변경 시 URL 업데이트 반영
             dateInput.addEventListener("change", updateURL);
 
-            // [표 데이터 복원]
             const keys = Array.from(urlParams.keys());
             const indices = keys
                 .filter(key => key.startsWith('n'))
@@ -254,11 +299,10 @@
                 for (let i = 0; i < 5; i++) {
                     createRow();
                 }
-                updateURL(); // 최초 접속 시 오늘 날짜를 주소창에 바로 각인
+                updateURL();
             }
         }
 
-        // 줄 추가 버튼
         document.getElementById("addEmptyRow").onclick = function() {
             createRow();
             updateURL();
