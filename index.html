@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재고 관리표</title>
+    <title>커스텀 재고 관리표</title>
     <style>
         /* 라이트 모드 스타일 */
         body {
@@ -12,7 +12,29 @@
             background-color: #ffffff;
             color: #333333;
         }
-        .container { max-width: 800px; }
+        .container { max-width: 800px; position: relative; }
+        
+        /* 헤더 및 날짜 영역 스타일 */
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 20px;
+        }
+        h2 { margin: 0; }
+        .date-container {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .date-container input[type="date"] {
+            font-family: inherit;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #333333;
+        }
+
         table { border-collapse: collapse; width: 100%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         th { background-color: #f4f4f4; font-weight: bold; }
@@ -43,18 +65,24 @@
             .btn-add:hover { background-color: #1557b0; }
             .btn-del { background-color: #c62828; }
             .btn-del:hover { background-color: #b71c1c; }
+            .date-container input[type="date"] { background-color: #1e1e1e; color: #e0e0e0; border-color: #444; }
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>📦 커스텀 재고 관리표</h2>
+        <div class="header-area">
+            <h2>📦 커스텀 재고 관리표</h2>
+            <div class="date-container">
+                조사일자: <input type="date" id="inventoryDate">
+            </div>
+        </div>
         
         <table id="inventoryTable">
             <thead>
                 <tr>
-                    <th>품목명</th>
+                    <th>cigarname (품목명)</th>
                     <th style="width: 18%;">전산재고</th>
                     <th style="width: 18%;">현재고</th>
                     <th style="width: 15%;">오차</th>
@@ -69,18 +97,25 @@
 
     <script>
         const tbody = document.querySelector("#inventoryTable tbody");
+        const dateInput = document.getElementById("inventoryDate");
         
-        // 1. 모든 입력값을 감지해 URL을 실시간 업데이트하는 함수 (인덱스 재정렬 로직 강화)
+        // 1. 모든 입력값과 날짜를 감지해 URL을 업데이트하는 함수
         function updateURL() {
             const params = new URLSearchParams();
-            const rows = tbody.querySelectorAll("tr");
             
+            // 날짜 저장 로직 (선택된 날짜가 있다면 YYMMDD 포맷으로 주소에 저장)
+            if (dateInput.value) {
+                const rawDate = dateInput.value.replace(/-/g, ""); // "2026-06-23" -> "20260623"
+                const yyStyle = rawDate.substring(2); // "260623"
+                params.set("date", yyStyle);
+            }
+
+            const rows = tbody.querySelectorAll("tr");
             rows.forEach((row, index) => {
                 const nameInput = row.querySelector(".name-input");
                 const sysInput = row.querySelector(".sys-input");
                 const curInput = row.querySelector(".cur-input");
                 
-                // 엘리먼트가 존재할 때만 값 참조 (안전성 확보)
                 if (nameInput && sysInput && curInput) {
                     const nameVal = nameInput.value;
                     const sysVal = sysInput.value;
@@ -102,7 +137,6 @@
         function createRow(initialName = "", initialSys = "", initialCur = "") {
             const tr = document.createElement("tr");
 
-            // [품목명]
             const tdName = document.createElement("td");
             const inputName = document.createElement("input");
             inputName.type = "text";
@@ -111,7 +145,6 @@
             inputName.value = initialName;
             tdName.appendChild(inputName);
 
-            // [전산재고]
             const tdSys = document.createElement("td");
             const inputSys = document.createElement("input");
             inputSys.type = "number";
@@ -120,7 +153,6 @@
             inputSys.value = initialSys;
             tdSys.appendChild(inputSys);
 
-            // [현재고]
             const tdCur = document.createElement("td");
             const inputCur = document.createElement("input");
             inputCur.type = "number";
@@ -129,23 +161,20 @@
             inputCur.value = initialCur;
             tdCur.appendChild(inputCur);
 
-            // [오차]
             const tdError = document.createElement("td");
             tdError.className = "error-cell";
             tdError.textContent = "-";
 
-            // [삭제 버튼]
             const tdAction = document.createElement("td");
             const btnDel = document.createElement("button");
             btnDel.className = "btn-del";
             btnDel.textContent = "삭제";
             btnDel.onclick = function() {
-                tr.remove(); // DOM에서 즉시 제거
-                updateURL(); // 제거된 상태 기준으로 URL 인덱스 완전 재정렬
+                tr.remove();
+                updateURL();
             };
             tdAction.appendChild(btnDel);
 
-            // 오차 계산 로직
             function calculateError() {
                 const sysVal = inputSys.value;
                 const curVal = inputCur.value;
@@ -168,14 +197,12 @@
                 }
             }
 
-            // 이벤트 감지
             inputName.addEventListener("input", updateURL);
             inputSys.addEventListener("input", () => { updateURL(); calculateError(); });
             inputCur.addEventListener("input", () => { updateURL(); calculateError(); });
 
             calculateError();
 
-            // 행 조립
             tr.appendChild(tdName);
             tr.appendChild(tdSys);
             tr.appendChild(tdCur);
@@ -184,20 +211,39 @@
             tbody.appendChild(tr);
         }
 
-        // 3. 초기화 (URL 데이터를 정렬된 순서대로 복원)
+        // 3. 초기화 (날짜 설정 및 URL 데이터 복원)
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
             
-            // URL에 n0, n1 같은 키가 있는지 모아서 정렬
+            // [날짜 세팅] URL에 date가 있으면 복원, 없으면 오늘 날짜 자동 계산
+            if (urlParams.has("date")) {
+                const urlDate = urlParams.get("date"); // "260623" 구조
+                if (urlDate.length === 6) {
+                    const fullYear = "20" + urlDate.substring(0, 2);
+                    const month = urlDate.substring(2, 4);
+                    const day = urlDate.substring(4, 6);
+                    dateInput.value = `${fullYear}-${month}-${day}`;
+                }
+            } else {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                dateInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+
+            // 날짜 수동 변경 시 URL 업데이트 반영
+            dateInput.addEventListener("change", updateURL);
+
+            // [표 데이터 복원]
             const keys = Array.from(urlParams.keys());
             const indices = keys
                 .filter(key => key.startsWith('n'))
                 .map(key => parseInt(key.substring(1)))
                 .filter(idx => !isNaN(idx))
-                .sort((a, b) => a - b); // 오름차순 정렬
+                .sort((a, b) => a - b);
 
             if (indices.length > 0) {
-                // 저장된 인덱스 순서대로 꼼꼼하게 매칭해서 파싱
                 indices.forEach(i => {
                     const name = urlParams.get(`n${i}`) || "";
                     const sys = urlParams.get(`s${i}`) || "";
@@ -205,14 +251,14 @@
                     createRow(name, sys, cur);
                 });
             } else {
-                // 기본 빈 행 5개 기본 생성
                 for (let i = 0; i < 5; i++) {
                     createRow();
                 }
+                updateURL(); // 최초 접속 시 오늘 날짜를 주소창에 바로 각인
             }
         }
 
-        // 줄 추가 버튼 이벤트
+        // 줄 추가 버튼
         document.getElementById("addEmptyRow").onclick = function() {
             createRow();
             updateURL();
