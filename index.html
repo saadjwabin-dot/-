@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>커스텀 재고 관리표</title>
+    <style>
+        /* 라이트 모드 스타일 */
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            padding: 20px;
+            background-color: #ffffff;
+            color: #333333;
+        }
+        .container { max-width: 800px; }
+        table { border-collapse: collapse; width: 100%; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background-color: #f4f4f4; font-weight: bold; }
+        input { width: 90%; padding: 6px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .name-input { text-align: left; font-weight: 500; }
+        .sys-input, .cur-input { text-align: right; }
+        .error-cell { font-weight: bold; background-color: #fcfcfc; }
+        .error-zero { color: #2e7d32; }
+        .error-diff { color: #d32f2f; }
+        .btn-add { width: 100%; padding: 10px; background-color: #007bff; color: white; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-add:hover { background-color: #0056b3; }
+        .btn-del { padding: 4px 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; }
+        .btn-del:hover { background-color: #bd2130; }
+
+        /* 🌙 다크 모드 */
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #121212; color: #e0e0e0; }
+            table { box-shadow: 0 0 15px rgba(255, 255, 255, 0.05); }
+            th, td { border: 1px solid #333; }
+            th { background-color: #242424; color: #ffffff; }
+            input { background-color: #1e1e1e; color: #e0e0e0; border: 1px solid #444; }
+            input:focus { outline: none; border-color: #777; background-color: #2a2a2a; }
+            input::placeholder { color: #666; }
+            .error-cell { background-color: #1a1a1a; }
+            .error-zero { color: #81c784; }
+            .error-diff { color: #e57373; }
+            .btn-add { background-color: #1a73e8; border-color: #333; }
+            .btn-add:hover { background-color: #1557b0; }
+            .btn-del { background-color: #c62828; }
+            .btn-del:hover { background-color: #b71c1c; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>📦 커스텀 재고 관리표</h2>
+        
+        <table id="inventoryTable">
+            <thead>
+                <tr>
+                    <th>cigarname (품목명)</th>
+                    <th style="width: 18%;">전산재고</th>
+                    <th style="width: 18%;">현재고</th>
+                    <th style="width: 15%;">오차</th>
+                    <th style="width: 12%;">관리</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+        <button id="addEmptyRow" class="btn-add">➕ 새 품목 추가</button>
+    </div>
+
+    <script>
+        const tbody = document.querySelector("#inventoryTable tbody");
+        
+        // 1. 모든 입력값을 감지해 URL을 실시간 업데이트하는 함수 (인덱스 재정렬 로직 강화)
+        function updateURL() {
+            const params = new URLSearchParams();
+            const rows = tbody.querySelectorAll("tr");
+            
+            rows.forEach((row, index) => {
+                const nameInput = row.querySelector(".name-input");
+                const sysInput = row.querySelector(".sys-input");
+                const curInput = row.querySelector(".cur-input");
+                
+                // 엘리먼트가 존재할 때만 값 참조 (안전성 확보)
+                if (nameInput && sysInput && curInput) {
+                    const nameVal = nameInput.value;
+                    const sysVal = sysInput.value;
+                    const curVal = curInput.value;
+                    
+                    if (nameVal !== "" || sysVal !== "" || curVal !== "") {
+                        params.set(`n${index}`, nameVal);
+                        if (sysVal !== "") params.set(`s${index}`, sysVal);
+                        if (curVal !== "") params.set(`c${index}`, curVal);
+                    }
+                }
+            });
+
+            const newUrl = `${window.location.pathname}?${params.toString()}`;
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        // 2. 테이블에 새로운 행(Row)을 추가하는 함수
+        function createRow(initialName = "", initialSys = "", initialCur = "") {
+            const tr = document.createElement("tr");
+
+            // [품목명]
+            const tdName = document.createElement("td");
+            const inputName = document.createElement("input");
+            inputName.type = "text";
+            inputName.className = "name-input";
+            inputName.placeholder = "품목명 입력";
+            inputName.value = initialName;
+            tdName.appendChild(inputName);
+
+            // [전산재고]
+            const tdSys = document.createElement("td");
+            const inputSys = document.createElement("input");
+            inputSys.type = "number";
+            inputSys.className = "sys-input";
+            inputSys.placeholder = "0";
+            inputSys.value = initialSys;
+            tdSys.appendChild(inputSys);
+
+            // [현재고]
+            const tdCur = document.createElement("td");
+            const inputCur = document.createElement("input");
+            inputCur.type = "number";
+            inputCur.className = "cur-input";
+            inputCur.placeholder = "0";
+            inputCur.value = initialCur;
+            tdCur.appendChild(inputCur);
+
+            // [오차]
+            const tdError = document.createElement("td");
+            tdError.className = "error-cell";
+            tdError.textContent = "-";
+
+            // [삭제 버튼]
+            const tdAction = document.createElement("td");
+            const btnDel = document.createElement("button");
+            btnDel.className = "btn-del";
+            btnDel.textContent = "삭제";
+            btnDel.onclick = function() {
+                tr.remove(); // DOM에서 즉시 제거
+                updateURL(); // 제거된 상태 기준으로 URL 인덱스 완전 재정렬
+            };
+            tdAction.appendChild(btnDel);
+
+            // 오차 계산 로직
+            function calculateError() {
+                const sysVal = inputSys.value;
+                const curVal = inputCur.value;
+
+                if (sysVal !== "" || curVal !== "") {
+                    const sysNum = parseInt(sysVal) || 0;
+                    const curNum = parseInt(curVal) || 0;
+                    const diff = sysNum - curNum;
+                    
+                    tdError.textContent = diff;
+                    tdError.classList.remove("error-zero", "error-diff");
+                    if (diff === 0) {
+                        tdError.classList.add("error-zero");
+                    } else {
+                        tdError.classList.add("error-diff");
+                    }
+                } else {
+                    tdError.textContent = "-";
+                    tdError.classList.remove("error-zero", "error-diff");
+                }
+            }
+
+            // 이벤트 감지
+            inputName.addEventListener("input", updateURL);
+            inputSys.addEventListener("input", () => { updateURL(); calculateError(); });
+            inputCur.addEventListener("input", () => { updateURL(); calculateError(); });
+
+            calculateError();
+
+            // 행 조립
+            tr.appendChild(tdName);
+            tr.appendChild(tdSys);
+            tr.appendChild(tdCur);
+            tr.appendChild(tdError);
+            tr.appendChild(tdAction);
+            tbody.appendChild(tr);
+        }
+
+        // 3. 초기화 (URL 데이터를 정렬된 순서대로 복원)
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // URL에 n0, n1 같은 키가 있는지 모아서 정렬
+            const keys = Array.from(urlParams.keys());
+            const indices = keys
+                .filter(key => key.startsWith('n'))
+                .map(key => parseInt(key.substring(1)))
+                .filter(idx => !isNaN(idx))
+                .sort((a, b) => a - b); // 오름차순 정렬
+
+            if (indices.length > 0) {
+                // 저장된 인덱스 순서대로 꼼꼼하게 매칭해서 파싱
+                indices.forEach(i => {
+                    const name = urlParams.get(`n${i}`) || "";
+                    const sys = urlParams.get(`s${i}`) || "";
+                    const cur = urlParams.get(`c${i}`) || "";
+                    createRow(name, sys, cur);
+                });
+            } else {
+                // 기본 빈 행 5개 기본 생성
+                for (let i = 0; i < 5; i++) {
+                    createRow();
+                }
+            }
+        }
+
+        // 줄 추가 버튼 이벤트
+        document.getElementById("addEmptyRow").onclick = function() {
+            createRow();
+            updateURL();
+        };
+
+        init();
+    </script>
+
+</body>
+</html>
